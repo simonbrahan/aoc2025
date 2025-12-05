@@ -12,11 +12,7 @@ zero_count = 0
 for turn in input:
     pos += turn
 
-    while pos > 99:
-        pos -= 100
-
-    while pos < 0:
-        pos += 100
+    pos = pos % 100
 
     if pos == 0:
         zero_count += 1
