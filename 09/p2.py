@@ -21,10 +21,11 @@ def print_tiles(tiles):
         print(line)
 
 
-def get_vertical_edges(corner_tiles):
+def get_scanline_edges(corner_tiles):
     edges = zip(red_tiles, red_tiles[1:] + [red_tiles[0]])
 
     out = set()
+    ignore = set()
     for start, end in edges:
         is_vertical = start[1] != end[1]
 
@@ -34,19 +35,26 @@ def get_vertical_edges(corner_tiles):
             end_y = max(start[1], end[1])
 
             out.update((x, y) for y in range(start_y, end_y + 1))
+        else:
+            """
+            Vertices between vertical and horizontal edges should be ignored
+            if the rest of the horizontal edge has already been scanned
+            """
+            rightmost_vertex = max(start, end, key=lambda vertex: vertex[0])
+            ignore.add(rightmost_vertex)
 
-    return out
+    return out.difference(ignore)
 
 
 def get_fill_tiles(red_tiles):
-    vertical_edges = get_vertical_edges(red_tiles)
+    scanline_edges = get_scanline_edges(red_tiles)
     width, height = get_fit_dimensions(red_tiles)
 
     out = set()
     for y in range(height+1):
         am_inside_shape = False
         for x in range(width+1):
-            am_at_edge = (x, y) in vertical_edges
+            am_at_edge = (x, y) in scanline_edges
             if am_inside_shape or am_at_edge:
                 out.add((x, y))
             
@@ -54,6 +62,7 @@ def get_fill_tiles(red_tiles):
                 am_inside_shape = not am_inside_shape
 
     return out
+
 
 with open("sample.txt") as f:
     red_tiles = [(tuple(int(num) for num in line.strip().split(","))) for line in f]
