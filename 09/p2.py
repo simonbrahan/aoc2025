@@ -1,72 +1,77 @@
-from itertools import combinations
+class Vertex:
+    def __init__(self, x: int, y: int):
+        self.x = x
+        self.y = y
 
-def get_fit_dimensions(tiles):
-    width = max(tile[0] for tile in tiles) + 1
-    height = max(tile[1] for tile in tiles) + 1
-
-    return width, height
-
-
-def print_tiles(tiles):
-    width, height = get_fit_dimensions(tiles)
-
-    for y in range(height+1):
-        line = ""
-        for x in range(width+1):
-            if (x, y) in tiles:
-                line += "#"
-            else:
-                line += "."
-
-        print(line)
+    def __repr__(self):
+        return "Vertex({}, {})".format(self.x, self.y)
 
 
-def get_scanline_edges(corner_tiles):
-    edges = zip(red_tiles, red_tiles[1:] + [red_tiles[0]])
+class Edge:
+    def __init__(self, start: Vertex, end: Vertex):
+        self.start = start
+        self.end = end
 
-    out = set()
-    ignore = set()
-    for start, end in edges:
-        is_vertical = start[1] != end[1]
+    def is_horizontal(self) -> bool:
+        return self.start.y == self.end.y
 
-        if is_vertical:
-            x = start[0]
-            start_y = min(start[1], end[1])
-            end_y = max(start[1], end[1])
+    def contains(self, x: int, y: int) -> bool:
+        if self.is_horizontal():
+            leftmost_x, rightmost_x = sorted([self.start.x, self.end.x])
+            return self.start.y == y and leftmost_x <= x <= rightmost_x
 
-            out.update((x, y) for y in range(start_y, end_y + 1))
-        else:
-            """
-            Vertices between vertical and horizontal edges should be ignored
-            if the rest of the horizontal edge has already been scanned
-            """
-            rightmost_vertex = max(start, end, key=lambda vertex: vertex[0])
-            ignore.add(rightmost_vertex)
+        highest_y, lowest_y = sorted([self.start.y, self.end.y])
+        return self.start.x == x and highest_y <= y <= lowest_y
 
-    return out.difference(ignore)
+    def __repr__(self):
+        return "Edge({}, {})".format(self.start, self.end)
 
 
-def get_fill_tiles(red_tiles):
-    scanline_edges = get_scanline_edges(red_tiles)
-    width, height = get_fit_dimensions(red_tiles)
+class Layout:
+    def from_tiles(tiles: List[Vertex]):
+        layout = Layout(tiles)
 
-    out = set()
-    for y in range(height+1):
-        am_inside_shape = False
-        for x in range(width+1):
-            am_at_edge = (x, y) in scanline_edges
-            if am_inside_shape or am_at_edge:
-                out.add((x, y))
-            
-            if am_at_edge:
-                am_inside_shape = not am_inside_shape
+        return layout
 
-    return out
+    def __init__(self, tiles: List[Vertex]):
+        self.tiles = tiles
+        self.edges = [
+            Edge(start, end)
+            for start, end in zip(self.tiles, self.tiles[1:] + [self.tiles[0]])
+        ]
+
+    def get_fit_dimensions(self):
+        width = max(tile.x for tile in self.tiles) + 1
+        height = max(tile.y for tile in self.tiles) + 1
+
+        return width, height
+
+    def is_edge(self, x: int, y: int) -> bool:
+        for edge in self.edges:
+            if edge.contains(x, y):
+                return True
+
+        return False
+
+    def print_edges(self):
+        width, height = self.get_fit_dimensions()
+
+        for y in range(height + 1):
+            line = ""
+            for x in range(width + 1):
+                if self.is_edge(x, y):
+                    line += "#"
+                else:
+                    line += "."
+
+            print(line)
 
 
 with open("sample.txt") as f:
-    red_tiles = [(tuple(int(num) for num in line.strip().split(","))) for line in f]
+    red_tile_positions = [
+        (tuple(int(num) for num in line.strip().split(","))) for line in f
+    ]
+    red_tiles = [Vertex(x, y) for x, y in red_tile_positions]
 
-fill_tiles = get_fill_tiles(red_tiles)
-
-print_tiles(fill_tiles)
+layout = Layout.from_tiles(red_tiles)
+layout.print_edges()
