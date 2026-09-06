@@ -18,6 +18,9 @@ class Edge:
     def is_horizontal(self) -> bool:
         return self.start.y == self.end.y
 
+    def is_vertical(self) -> bool:
+        return self.start.x == self.end.x
+
     def contains(self, x: int, y: int) -> bool:
         if self.is_horizontal():
             leftmost_x, rightmost_x = sorted([self.start.x, self.end.x])
@@ -39,11 +42,14 @@ class Edge:
         highest_y, lowest_y = sorted([self.start.y, self.end.y])
         return highest_y <= y <= lowest_y
 
+    def get_topmost_vertex(self) -> Vertex:
+        return min(self.start, self.end, key=lambda edge: [edge.y, edge.x])
+
     def get_leftmost_vertex(self) -> Vertex:
         return min(self.start, self.end, key=lambda edge: [edge.x, edge.y])
 
     def get_leftmost_column(self) -> int:
-        return min(self.start.x, self.end.x)
+        return self.get_leftmost_vertex().x
 
     def __repr__(self):
         return "Edge({}, {})".format(self.start, self.end)
@@ -61,15 +67,40 @@ class RowEdges:
         return any(edge.contains(x, self.y) and edge.is_horizontal() for edge in self.edges)
 
     def has_vertical_at(self, x: int) -> bool:
-        return any(edge.contains(x, self.y) and not edge.is_horizontal() for edge in self.edges)
+        return any(edge.contains(x, self.y) and edge.is_vertical() for edge in self.edges)
+
+    def get_vertical_at(self, x: int) -> Edge:
+        for edge in self.edges:
+            if edge.is_vertical() and edge.contains(x, self.y):
+                return edge
+
+        raise Exception
 
     def is_start_of_horizontal(self, x: int) -> bool:
         return any(edge.is_horizontal() and edge.has_leftmost_vertex_at(x, self.y) for edge in self.edges)
 
-    def should_paint(self, x):
+    def vertical_edge_goes_down(self, x: int) -> bool:
+
+        vertical_at = self.get_vertical_at(x)
+        topmost = vertical_at.get_topmost_vertex()
+        is_at = topmost.is_at(x, self.y)
+        #print(vertical_at, topmost, x, self.y, is_at)
+
+        return self.get_vertical_at(x).get_topmost_vertex().is_at(x, self.y)
+
+    def should_paint(self, x: int):
         return any(edge.contains(x, self.y) for edge in self.edges)
 
-    def should_toggle_painting(self, x: int, currently_painting: bool) -> bool:
+    def should_toggle_painting(self, x: int) -> bool:
+        if self.has_vertex_at(x):
+            if self.is_start_of_horizontal(x):
+                return False
+
+            return self.vertical_edge_goes_down(x)
+
+        if self.has_horizontal_at(x):
+            return False
+
         if self.has_vertical_at(x):
             return True
 
@@ -126,7 +157,7 @@ class Layout:
             edges = self.get_edges_intersecting_row(y)
             painting = False
             for x in range(width + 1):
-                if edges.should_toggle_painting(x, painting):
+                if edges.should_toggle_painting(x):
                     painting = not painting
 
                 should_paint = edges.should_paint(x)
