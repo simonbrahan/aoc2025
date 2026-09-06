@@ -6,6 +6,9 @@ class Vertex:
     def __repr__(self):
         return "Vertex({}, {})".format(self.x, self.y)
 
+    def is_at(self, x: int, y: int) -> bool:
+        return self.x == x and self.y == y
+
 
 class Edge:
     def __init__(self, start: Vertex, end: Vertex):
@@ -23,8 +26,54 @@ class Edge:
         highest_y, lowest_y = sorted([self.start.y, self.end.y])
         return self.start.x == x and highest_y <= y <= lowest_y
 
+    def has_vertex_at(self, x: int, y: int) -> bool:
+        return self.start.is_at(x, y) or self.end.is_at(x, y)
+
+    def has_leftmost_vertex_at(self, x: int, y: int) -> bool:
+        return self.get_leftmost_vertex().is_at(x, y)
+
+    def intersects_row(self, y: int) -> bool:
+        if self.is_horizontal():
+            return self.start.y == y
+
+        highest_y, lowest_y = sorted([self.start.y, self.end.y])
+        return highest_y <= y <= lowest_y
+
+    def get_leftmost_vertex(self) -> Vertex:
+        return min(self.start, self.end, key=lambda edge: [edge.x, edge.y])
+
+    def get_leftmost_column(self) -> int:
+        return min(self.start.x, self.end.x)
+
     def __repr__(self):
         return "Edge({}, {})".format(self.start, self.end)
+
+
+class RowEdges:
+    def __init__(self, y: int, edges: List[Edge]):
+        self.y = y
+        self.edges = sorted(edges, key=lambda edge: edge.get_leftmost_column())
+
+    def has_vertex_at(self, x: int) -> bool:
+        return any(edge.has_vertex_at(x, self.y) for edge in self.edges)
+
+    def has_horizontal_at(self, x: int) -> bool:
+        return any(edge.contains(x, self.y) and edge.is_horizontal() for edge in self.edges)
+
+    def has_vertical_at(self, x: int) -> bool:
+        return any(edge.contains(x, self.y) and not edge.is_horizontal() for edge in self.edges)
+
+    def is_start_of_horizontal(self, x: int) -> bool:
+        return any(edge.is_horizontal() and edge.has_leftmost_vertex_at(x, self.y) for edge in self.edges)
+
+    def should_paint(self, x):
+        return any(edge.contains(x, self.y) for edge in self.edges)
+
+    def should_toggle_painting(self, x: int, currently_painting: bool) -> bool:
+        if self.has_vertical_at(x):
+            return True
+
+        return False
 
 
 class Layout:
@@ -53,6 +102,9 @@ class Layout:
 
         return False
 
+    def get_edges_intersecting_row(self, y: int) -> RowEdges:
+        return RowEdges(y, [edge for edge in self.edges if edge.intersects_row(y)])
+
     def print_edges(self):
         width, height = self.get_fit_dimensions()
 
@@ -60,6 +112,26 @@ class Layout:
             line = ""
             for x in range(width + 1):
                 if self.is_edge(x, y):
+                    line += "#"
+                else:
+                    line += "."
+
+            print(line)
+
+    def print_filled(self):
+        width, height = self.get_fit_dimensions()
+
+        for y in range(height + 1):
+            line = ""
+            edges = self.get_edges_intersecting_row(y)
+            painting = False
+            for x in range(width + 1):
+                if edges.should_toggle_painting(x, painting):
+                    painting = not painting
+
+                should_paint = edges.should_paint(x)
+
+                if painting or should_paint:
                     line += "#"
                 else:
                     line += "."
@@ -74,4 +146,4 @@ with open("sample.txt") as f:
     red_tiles = [Vertex(x, y) for x, y in red_tile_positions]
 
 layout = Layout.from_tiles(red_tiles)
-layout.print_edges()
+layout.print_filled()
