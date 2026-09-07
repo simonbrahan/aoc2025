@@ -1,7 +1,16 @@
+from itertools import combinations
+
+
 class Vertex:
     def __init__(self, x: int, y: int):
         self.x = x
         self.y = y
+
+    def __hash__(self):
+        return hash((self.x, self.y))
+
+    def __eq__(self, other):
+        return isinstance(other, Vertex) and self.x == other.x and self.y == other.y
 
     def __repr__(self):
         return "Vertex({}, {})".format(self.x, self.y)
@@ -191,12 +200,72 @@ class Layout:
 
             print(line)
 
+    def get_filled(self):
+        width, height = self.get_fit_dimensions()
 
-with open("sample.txt") as f:
+        out = set()
+        for y in range(height):
+            edges = self.get_edges_intersecting_row(y)
+            painting = False
+            for x in range(width):
+                if edges.should_toggle_painting(x):
+                    painting = not painting
+
+                should_paint = edges.should_paint(x)
+
+                if painting or should_paint:
+                    out.add(Vertex(x, y))
+
+        return out
+
+    def contains_tiles(self, tiles: set[Vertex]):
+        filled_tiles = self.get_filled()
+        return tiles.issubset(filled_tiles)
+
+
+def get_area(point_a: Vertex, point_b: Vertex) -> int:
+    width = abs(point_a.x - point_b.x) + 1
+    height = abs(point_a.y - point_b.y) + 1
+
+    return width * height
+
+
+def get_rectangle_perimeter_from_corners(
+    point_a: Vertex, point_b: Vertex
+) -> set[Vertex]:
+    low_x, high_x = sorted([point_a.x, point_b.x])
+    low_y, high_y = sorted([point_a.y, point_b.y])
+    x_range = range(low_x, high_x + 1)
+    y_range = range(low_y, high_y + 1)
+
+    out = set()
+    out.update(Vertex(x, low_y) for x in x_range)
+    out.update(Vertex(x, high_y) for x in x_range)
+    out.update(Vertex(low_x, y) for y in y_range)
+    out.update(Vertex(high_x, y) for y in y_range)
+    return out
+
+
+def get_largest_area(points, layout):
+    pairs = combinations(points, 2)
+    layout_tiles = layout.get_filled()
+
+    largest_area = 0
+    for point_a, point_b in pairs:
+        rectangle_perimeter = get_rectangle_perimeter_from_corners(point_a, point_b)
+        area = get_area(point_a, point_b)
+        if area > largest_area and rectangle_perimeter.issubset(layout_tiles):
+            largest_area = area
+
+    return largest_area
+
+
+with open("test1.txt") as f:
     red_tile_positions = [
         (tuple(int(num) for num in line.strip().split(","))) for line in f
     ]
     red_tiles = [Vertex(x, y) for x, y in red_tile_positions]
 
 layout = Layout.from_tiles(red_tiles)
-layout.print_filled()
+
+print(get_largest_area(red_tiles, layout))
