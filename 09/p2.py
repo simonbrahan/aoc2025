@@ -21,6 +21,12 @@ class Edge:
     def is_vertical(self) -> bool:
         return self.start.x == self.end.x
 
+    def isBeforeColumn(self, x) -> bool:
+        if self.is_horizontal():
+            raise Exception
+
+        return self.start.x < x
+
     def contains(self, x: int, y: int) -> bool:
         if self.is_horizontal():
             leftmost_x, rightmost_x = sorted([self.start.x, self.end.x])
@@ -41,6 +47,12 @@ class Edge:
 
         highest_y, lowest_y = sorted([self.start.y, self.end.y])
         return highest_y <= y <= lowest_y
+
+    def goes_down_from_row(self, y: int) -> bool:
+        if self.is_horizontal():
+            raise Exception
+
+        return self.get_topmost_vertex().y == y
 
     def get_topmost_vertex(self) -> Vertex:
         return min(self.start, self.end, key=lambda edge: [edge.y, edge.x])
@@ -64,10 +76,14 @@ class RowEdges:
         return any(edge.has_vertex_at(x, self.y) for edge in self.edges)
 
     def has_horizontal_at(self, x: int) -> bool:
-        return any(edge.contains(x, self.y) and edge.is_horizontal() for edge in self.edges)
+        return any(
+            edge.contains(x, self.y) and edge.is_horizontal() for edge in self.edges
+        )
 
     def has_vertical_at(self, x: int) -> bool:
-        return any(edge.contains(x, self.y) and edge.is_vertical() for edge in self.edges)
+        return any(
+            edge.contains(x, self.y) and edge.is_vertical() for edge in self.edges
+        )
 
     def get_vertical_at(self, x: int) -> Edge:
         for edge in self.edges:
@@ -76,17 +92,22 @@ class RowEdges:
 
         raise Exception
 
+    def get_previous_vertical(self, x: int) -> Edge:
+        out = None
+        for edge in self.edges:
+            if edge.is_vertical() and edge.isBeforeColumn(x):
+                out = edge
+
+        if out:
+            return out
+
+        raise Exception
+
     def is_start_of_horizontal(self, x: int) -> bool:
-        return any(edge.is_horizontal() and edge.has_leftmost_vertex_at(x, self.y) for edge in self.edges)
-
-    def vertical_edge_goes_down(self, x: int) -> bool:
-
-        vertical_at = self.get_vertical_at(x)
-        topmost = vertical_at.get_topmost_vertex()
-        is_at = topmost.is_at(x, self.y)
-        #print(vertical_at, topmost, x, self.y, is_at)
-
-        return self.get_vertical_at(x).get_topmost_vertex().is_at(x, self.y)
+        return any(
+            edge.is_horizontal() and edge.has_leftmost_vertex_at(x, self.y)
+            for edge in self.edges
+        )
 
     def should_paint(self, x: int):
         return any(edge.contains(x, self.y) for edge in self.edges)
@@ -96,10 +117,11 @@ class RowEdges:
             if self.is_start_of_horizontal(x):
                 return False
 
-            return self.vertical_edge_goes_down(x)
-
-        if self.has_horizontal_at(x):
-            return False
+            prev_vertical_goes_down = self.get_previous_vertical(x).goes_down_from_row(
+                self.y
+            )
+            this_vertical_goes_down = self.get_vertical_at(x).goes_down_from_row(self.y)
+            return prev_vertical_goes_down != this_vertical_goes_down
 
         if self.has_vertical_at(x):
             return True
