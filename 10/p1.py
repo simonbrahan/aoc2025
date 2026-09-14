@@ -1,4 +1,4 @@
-from itertools import permutations
+from itertools import chain, combinations
 
 
 def parse_input_line(line):
@@ -16,28 +16,27 @@ def parse_input_line(line):
 
 
 def find_shortest_setup(required_indicators, buttons, _):
-    out = len(buttons)
-    for process in permutations(buttons, len(buttons)):
+    tests = []
+    tests = chain.from_iterable(
+        combinations(buttons, i) for i in range(1, len(buttons))
+    )
+
+    for test in tests:
         indicators = [False] * len(required_indicators)
-        button_count = 0
-        for button in process:
-            button_count += 1
+        for button in test:
             for indicator in button:
                 indicators[indicator] = not indicators[indicator]
 
-            if indicators == required_indicators:
-                out = min(out, button_count)
+        if indicators == required_indicators:
+            return len(test)
 
-    return out
+    return None
 
-
-input = []
-with open("sample.txt") as f:
-    for line in f:
-        input.append(parse_input_line(line))
 
 out = 0
-for machine in input:
-    out += find_shortest_setup(*machine)
+with open("input.txt") as f:
+    for line in f:
+        machine = parse_input_line(line)
+        out += find_shortest_setup(*machine)
 
 print(out)
